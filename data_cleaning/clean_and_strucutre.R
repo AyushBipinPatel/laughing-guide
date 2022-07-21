@@ -53,3 +53,12 @@ data_tcpd_ge_62_19 %>%
   # ) %>% 
   # write_csv("data/3_data_ge_year_states_seats.csv")
 
+
+# Clean pop age sub grp estimate data -------------------------------------
+
+
+readxl::read_xlsx("data/6_data_India_5yr_age_sex_2000-2020_508_uscb_aug2016.xlsx",
+                  skip = 3,sheet = "sheet_read") %>% 
+  filter(ADM_LEVEL == 1) %>% 
+  select(ADM1_NAME, ADM_LEVEL,COMMENT,contains("B")) %>% 
+  write_csv("data/7_data_age_grp_pop_est_2000_to_2020.csv")

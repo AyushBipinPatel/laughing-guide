@@ -1,0 +1,278 @@
+---
+title: "Delimitation Footwork"
+author: "Ayush Patel"
+date: "19/07/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F,
+                      fig.align='center',out.width="100%")
+```
+
+```{r libraries, include=FALSE}
+library(here)
+library(tidyverse)
+library(reactable)
+```
+
+```{r read_data, include=FALSE}
+data_ge_cont <- read_csv(
+  here("data/4_data_constituency_level_ge_year_electors.csv"))
+
+data_pop_proj <- read_csv(here("data/5_data_CleanPopPredictions1951-2036.csv"))
+
+data_age_sub_grp_est <- read_csv(here("data/7_data_age_grp_pop_est_2000_to_2020.csv"))
+
+```
+
+# Check if electors are a good proxy at state level
+
+Max has done this, refer his email. 
+
+
+
+# Movements in the age sub group
+
+Aashish Gupta pointed towards DHS estimates of pop across age groups. From 2000 to 2020.
+
+```{r age_decomp}
+data_age_sub_grp_est %>% 
+  select(
+    ADM1_NAME,COMMENT,
+    contains(as.character(unique(data_ge_cont$Year)))
+         )%>% 
+  rowwise() %>% 
+  mutate(
+    perc_0_19_2004 = sum(c_across(B0004_2004:B1519_2004))/BTOTL_2004,
+    perc_20_PL_2004 = sum(c_across(B2024_2004:B80PL_2004))/BTOTL_2004,
+    perc_0_19_2009 = sum(c_across(B0004_2009:B1519_2009))/BTOTL_2009,
+    perc_20_PL_2009 = sum(c_across(B2024_2009:B80PL_2009))/BTOTL_2009,
+    perc_0_19_2014 = sum(c_across(B0004_2014:B1519_2014))/BTOTL_2014,
+    perc_20_PL_2014 = sum(c_across(B2024_2014:B80PL_2014))/BTOTL_2014,
+    perc_0_19_2019 = sum(c_across(B0004_2019:B1519_2019))/BTOTL_2019,
+    perc_20_PL_2019 = sum(c_across(B2024_2019:B80PL_2019))/BTOTL_2019,
+    
+  ) %>% 
+  ungroup() %>%
+  select(ADM1_NAME,COMMENT,contains("perc")) %>% 
+  pivot_longer(cols = contains("_0_19"),names_to = "Year_Est",
+               values_to = "est_0_19_perc") %>% 
+  mutate(
+    Year_Est = str_extract(Year_Est,"....$")
+  ) %>% 
+  ggplot(aes(est_0_19_perc, Year_Est))+
+  geom_boxplot(alpha=0.8)+
+  geom_jitter(alpha = 0.5)+
+  theme_minimal()+
+  theme(
+    plot.caption.position = 'plot',
+    plot.title.position = 'plot'
+  )+
+  labs(
+    title = "Changes in population under 18",
+    x = "Estimates of percntage population below 18",
+    y = "Year",
+    caption = "Every do is a state in a given year"
+  )
+```
+<br> 
+<br>
+
+```{r describe_below_median}
+data_age_sub_grp_est %>% 
+  select(
+    ADM1_NAME,COMMENT,
+    contains(as.character(unique(data_ge_cont$Year)))
+         )%>% 
+  rowwise() %>% 
+  mutate(
+    perc_0_19_2004 = sum(c_across(B0004_2004:B1519_2004))/BTOTL_2004,
+    perc_20_PL_2004 = sum(c_across(B2024_2004:B80PL_2004))/BTOTL_2004,
+    perc_0_19_2009 = sum(c_across(B0004_2009:B1519_2009))/BTOTL_2009,
+    perc_20_PL_2009 = sum(c_across(B2024_2009:B80PL_2009))/BTOTL_2009,
+    perc_0_19_2014 = sum(c_across(B0004_2014:B1519_2014))/BTOTL_2014,
+    perc_20_PL_2014 = sum(c_across(B2024_2014:B80PL_2014))/BTOTL_2014,
+    perc_0_19_2019 = sum(c_across(B0004_2019:B1519_2019))/BTOTL_2019,
+    perc_20_PL_2019 = sum(c_across(B2024_2019:B80PL_2019))/BTOTL_2019,
+    
+  ) %>% 
+  ungroup() %>%
+  select(ADM1_NAME,COMMENT,contains("perc")) %>% 
+  pivot_longer(cols = contains("_0_19"),names_to = "Year_Est",
+               values_to = "est_0_19_perc") %>% 
+  mutate(
+    Year_Est = str_extract(Year_Est,"....$")
+  ) %>% 
+  group_by(Year_Est) %>% 
+  summarise(
+    median_est = median(est_0_19_perc, na.rm = T),
+    quantiles_est = list(quantile(est_0_19_perc, na.rm= T))
+  ) %>% 
+  ungroup() %>% 
+  mutate(
+    perc_pop_above_18 = 1 - median_est
+  ) %>% 
+  reactable()
+
+
+```
+
+__A rough estimate of 2% increase in total Electors every General Election may be assumed.__
+
+```{r elct_totpo, eval = F}
+names(data_ge_cont)
+
+data_ge_cont %>% 
+  group_by(Year,State_Name) %>% 
+  summarise(
+    tot_electors = sum(Electors, na.rm = T),
+    tot_seats = n()
+  ) %>% 
+  ungroup() %>% 
+  group_by(Year) %>% 
+  mutate(
+    z_tot_electors = (tot_electors - median(tot_electors))/(sd(tot_electors)),
+    z_tot_seats = (tot_seats - median(tot_seats))/(sd(tot_seats))
+  ) %>% 
+  ggplot(aes(z_tot_electors,z_tot_seats,colour = Year))+
+  scale_colour_gradient(low = "#04aa6d",
+                         high = "#ffc051")+
+  geom_jitter(alpha = 0.5)+
+  geom_function(fun = ~ .x*1, alpha = 0.5)+
+  guides(colour = guide_colorbar(title = "Year",
+                        direction = "horizontal",
+                        barwidth = unit(20,'lines')))+
+  theme_minimal()+
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    plot.caption.position = 'plot',
+    plot.title.position = 'plot'
+  )+
+  labs(
+    title = "Is Numebr of electors a good proxy for total population?",
+    x = "Normalised total population",
+    y = "Normalised total seats",
+    caption = "Every point is a state in a given general election."
+  )
+```
+
+
+
+# Freezing at 1971 population
+
+
+
+```{r}
+data_ge_cont %>% 
+  filter(Year == 1971) %>% 
+  mutate(
+    State_Name = ifelse(State_Name == "Mysore",
+                        "Karnataka",State_Name)
+  ) %>% 
+  group_by(State_Name) %>% 
+  summarise(
+    seats_1971 = n(),
+    electors_1971 = sum(Electors)
+  ) %>% 
+  mutate(
+    perc_seats_1971 = 100*round(seats_1971/(sum(.data$seats_1971)),3),
+    perc_electors_1971 = 100*round(electors_1971/(sum(.data$electors_1971)),3) 
+  ) %>% 
+  arrange(State_Name) %>% 
+  full_join(
+    data_ge_cont %>% 
+  filter(Year == 2019) %>% 
+  group_by(State_Name) %>% 
+  summarise(
+    seats_2019 = n(),
+    electors_2019 = sum(Electors)
+  ) %>% 
+  mutate(
+    perc_seats_2019 = 100*round(seats_2019/(sum(.data$seats_2019)),3),
+    perc_electors_2019 = 100*round(electors_2019/(sum(.data$electors_2019)),3) 
+  ) %>% 
+  arrange(State_Name),
+  by = "State_Name"
+  ) %>% 
+  mutate(
+    State_Name = str_replace_all(State_Name,
+                                 "_"," "),
+    State_Name = str_replace_all(State_Name,
+                                 "&","and"),
+  ) %>% 
+  full_join(data_pop_proj %>% 
+              filter(Year == 1971),
+            by = c("State_Name" = "State")) %>% 
+  select(-c("...1","Year")) %>% 
+  rename("pop_71" = "Population",
+         "pop_tot" = "Pop Total",
+         "pop_proportion" = "Population Proportion") %>% 
+  reactable(defaultPageSize = 40)
+```
+
+
+
+# Changes as per 2031 population projections
+
+
+```{r in_2031}
+data_ge_cont %>% 
+  filter(Year == 2019) %>% 
+  group_by(State_Name) %>% 
+  summarise(
+    seats_2019 = n(),
+    electors_2019 = sum(Electors)
+  ) %>% 
+  mutate(
+    State_Name = str_replace_all(State_Name,
+                                 "_"," "),
+    State_Name = str_replace_all(State_Name,
+                                 "&","and"),
+  ) %>% 
+  full_join(
+    data_pop_proj %>% 
+      filter(Year == 2031),
+    by = c("State_Name" = "State")
+  ) %>% 
+  select(-c("...1","Year")) %>% 
+  rename("pop_31" = "Population",
+         "pop_tot" = "Pop Total",
+         "pop_proportion" = "Population Proportion") %>% 
+  mutate(
+    new_allocate = round((pop_31/pop_tot)*543,3),
+    new_allocate_adj = ifelse(new_allocate<1,
+                              1,ifelse(trunc(new_allocate) > 32,
+                                       floor(new_allocate)+1,
+                                       floor(new_allocate))
+                              ),
+    delta_seats =   new_allocate_adj -seats_2019
+  ) %>% 
+  select(State_Name, seats_2019,contains("new"),delta_seats) %>% 
+  reactable(defaultPageSize = 40, 
+            columns = list(
+              delta_seats = colDef(
+                style = function(value){
+                  if(value > 0 | is.na(value)){
+                    if(is.na(value)){
+                      background  <- "#777"
+                    }else{
+                      background  <- "#04aa6d"
+                    }
+                    
+                  }else if(value <0){
+                    background  <- "#a62420"
+                  }else{
+                    background  <- "#74aadb"
+                  }
+                  list(background  = background,
+                       color = "#191919",fontWeight = "bold")
+                }
+              )
+            ),
+             defaultSorted = c("State_Name", "delta_seats")
+            )
+```
+
+

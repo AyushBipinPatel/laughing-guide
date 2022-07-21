@@ -16,4 +16,4 @@ All the data is in the `data` folder.
 
 The file(s) in the folder `data_cleaning` are scripts to clean and structure the data in the desirable format. The clean and structured data is stored in the folder `data`.
 
-  + The file `clean_and_structure.R` is used to clean and strucutre the data.
+  + The file `clean_and_structure.R` is used to clean and structure the data.
