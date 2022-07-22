@@ -7,7 +7,9 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F, warning = F,
-                      fig.align='center',out.width="100%")
+                      fig.align='center',
+                      out.width="100%",
+                      message = F)
 ```
 
 ```{r libraries, include=FALSE}
@@ -275,4 +277,247 @@ data_ge_cont %>%
             )
 ```
 
+
+# Chnages as per census years
+
+<br>
+
+It is to be noted that some states and UT have data for total persons in non-census year (leading or lagging by two years at most). This have been considered to be the population in census year as this does not effect our calculation for the purpose of calculation seats for each state.
+
+<br>
+
+Seats for all years have been fixed at 545, can be easily changed.
+<br>
+
+```{r read_decadal_pop, include=FALSE}
+read_csv(here("data/12_states_decadal_pop.csv")) -> data_persons_decadal
+```
+
+```{r create_proportions}
+data_persons_decadal %>% 
+  janitor::clean_names() %>% 
+  select(state, "x1951": "x2011") %>% 
+  mutate(
+    across(.cols = x1951:x2011,.fns = as.numeric),
+    across(.cols = x1951:x2011, 
+           .fns = ~ round(.x*543/sum(.data$.x, na.rm = T),3),
+           .names = "seats_{.col}")
+  )  -> data_persons_decadal_seats_est
+
+
+fine_tune_seats <- function(x){
+  sum(data_persons_decadal_seats_est[[x]] < 1,
+      na.rm = T) -> seats_less_1 # seats to give to states with est less than1
+  sum(floor(data_persons_decadal_seats_est[[x]]),
+      na.rm = T) -> min_seats_state_more_1 # minimum seats to allocate to states with est greater than 1
+  
+  temp_seat_holder <- 543 - seats_less_1 - min_seats_state_more_1 # seats to distribute amongst states with higher values after decimal
+  
+  sort(
+    trunc(
+      data_persons_decadal_seats_est[[x]]
+      )[trunc(data_persons_decadal_seats_est[[x]])>0]
+    )[1:temp_seat_holder] -> add_one_seat # vector of truncs where additional seat is to be added.
+  
+  case_when(
+    data_persons_decadal_seats_est[[x]] < 1 ~ 1,
+    data_persons_decadal_seats_est[[x]] > 1 ~ ifelse(
+      trunc(data_persons_decadal_seats_est[[x]]) %in% add_one_seat,
+                          floor(data_persons_decadal_seats_est[[x]]) + 1,
+                           floor(data_persons_decadal_seats_est[[x]]))
+  ) -> est_fine_tune_seats
+  
+  return(est_fine_tune_seats)
+  
+  
+}
+
+
+map_dfc(.x = as.list(names(data_persons_decadal_seats_est)[9:15]),
+     .f = fine_tune_seats) -> fine_tuned_estimates_1951_2011
+
+colnames(
+  fine_tuned_estimates_1951_2011
+) <- paste0("fine_tune_seats",seq(1951,2011,10))
+
+
+cbind(data_persons_decadal_seats_est,
+      fine_tuned_estimates_1951_2011) %>% 
+  select(state,contains("fine_tune")) -> data_persons_decadal_seats_est
+  
+
+data_persons_decadal_seats_est %>% 
+  knitr::kable() %>% 
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped","hover"),
+    position = "center"
+  ) 
+
+```
+
+```{r delat_census_allocation}
+
+data_persons_decadal_seats_est %>% 
+  mutate(
+    delta_61_51 = fine_tune_seats1961 - fine_tune_seats1951,
+    delta_71_61 = fine_tune_seats1971 - fine_tune_seats1961,
+    delta_81_71 = fine_tune_seats1981 - fine_tune_seats1971,
+    delta_91_81 = fine_tune_seats1991 - fine_tune_seats1981,
+    delta_201_91 = fine_tune_seats2001 - fine_tune_seats1991,
+    delta_211_201 = fine_tune_seats2011 - fine_tune_seats2001,
+    delta_211_71 = fine_tune_seats2011 - fine_tune_seats1971,
+    delta_211_91 = fine_tune_seats2011 - fine_tune_seats1991,
+  ) %>% 
+  select(state,contains("delta")) %>% 
+  reactable(defaultPageSize = 40, 
+            columns = list(
+              delta_61_51 = colDef(
+                style = function(value){
+                  if(value > 0 | is.na(value)){
+                    if(is.na(value)){
+                      background  <- "#777"
+                    }else{
+                      background  <- "#04aa6d"
+                    }
+                    
+                  }else if(value <0){
+                    background  <- "#a62420"
+                  }else{
+                    background  <- "#74aadb"
+                  }
+                  list(background  = background,
+                       color = "#191919",fontWeight = "bold")
+                }
+              ),
+              delta_71_61 = colDef(
+                style = function(value){
+                  if(value > 0 | is.na(value)){
+                    if(is.na(value)){
+                      background  <- "#777"
+                    }else{
+                      background  <- "#04aa6d"
+                    }
+                    
+                  }else if(value <0){
+                    background  <- "#a62420"
+                  }else{
+                    background  <- "#74aadb"
+                  }
+                  list(background  = background,
+                       color = "#191919",fontWeight = "bold")
+                }
+              ),
+              delta_81_71 = colDef(
+                style = function(value){
+                  if(value > 0 | is.na(value)){
+                    if(is.na(value)){
+                      background  <- "#777"
+                    }else{
+                      background  <- "#04aa6d"
+                    }
+                    
+                  }else if(value <0){
+                    background  <- "#a62420"
+                  }else{
+                    background  <- "#74aadb"
+                  }
+                  list(background  = background,
+                       color = "#191919",fontWeight = "bold")
+                }
+              ),
+              delta_91_81 = colDef(
+                style = function(value){
+                  if(value > 0 | is.na(value)){
+                    if(is.na(value)){
+                      background  <- "#777"
+                    }else{
+                      background  <- "#04aa6d"
+                    }
+                    
+                  }else if(value <0){
+                    background  <- "#a62420"
+                  }else{
+                    background  <- "#74aadb"
+                  }
+                  list(background  = background,
+                       color = "#191919",fontWeight = "bold")
+                }
+              ),
+              delta_201_91 = colDef(
+                style = function(value){
+                  if(value > 0 | is.na(value)){
+                    if(is.na(value)){
+                      background  <- "#777"
+                    }else{
+                      background  <- "#04aa6d"
+                    }
+                    
+                  }else if(value <0){
+                    background  <- "#a62420"
+                  }else{
+                    background  <- "#74aadb"
+                  }
+                  list(background  = background,
+                       color = "#191919",fontWeight = "bold")
+                }
+              ),
+              delta_211_201 = colDef(
+                style = function(value){
+                  if(value > 0 | is.na(value)){
+                    if(is.na(value)){
+                      background  <- "#777"
+                    }else{
+                      background  <- "#04aa6d"
+                    }
+                    
+                  }else if(value <0){
+                    background  <- "#a62420"
+                  }else{
+                    background  <- "#74aadb"
+                  }
+                  list(background  = background,
+                       color = "#191919",fontWeight = "bold")
+                }
+              ),
+              delta_211_71 = colDef(
+                style = function(value){
+                  if(value > 0 | is.na(value)){
+                    if(is.na(value)){
+                      background  <- "#777"
+                    }else{
+                      background  <- "#04aa6d"
+                    }
+                    
+                  }else if(value <0){
+                    background  <- "#a62420"
+                  }else{
+                    background  <- "#74aadb"
+                  }
+                  list(background  = background,
+                       color = "#191919",fontWeight = "bold")
+                }
+              ),
+              delta_211_91 = colDef(
+                style = function(value){
+                  if(value > 0 | is.na(value)){
+                    if(is.na(value)){
+                      background  <- "#777"
+                    }else{
+                      background  <- "#04aa6d"
+                    }
+                    
+                  }else if(value <0){
+                    background  <- "#a62420"
+                  }else{
+                    background  <- "#74aadb"
+                  }
+                  list(background  = background,
+                       color = "#191919",fontWeight = "bold")
+                }
+              )
+            ),
+             defaultSorted = c("state","delta_211_71","delta_211_91")
+            )
+
+```
 
