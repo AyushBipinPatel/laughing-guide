@@ -84,7 +84,8 @@ data_persons_decadal %>%
       census_year == "1962" ~ "1961",
       census_year == "1948" ~ "1951",
       TRUE ~ census_year),
-    census_year = as_factor(census_year)
+    census_year = as_factor(census_year),
+    state = unlist(str_remove_all(state,"[:punct:]+$"))
     
     ) %>% 
   filter(state != "INDIA") %>% 
