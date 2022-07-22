@@ -286,7 +286,7 @@ It is to be noted that some states and UT have data for total persons in non-cen
 
 <br>
 
-Seats for all years have been fixed at 545, can be easily changed.
+Seats for all years have been fixed at 543, can be easily changed.
 <br>
 
 ```{r read_decadal_pop, include=FALSE}
