@@ -62,3 +62,38 @@ readxl::read_xlsx("data/6_data_India_5yr_age_sex_2000-2020_508_uscb_aug2016.xlsx
   filter(ADM_LEVEL == 1) %>% 
   select(ADM1_NAME, ADM_LEVEL,COMMENT,contains("B")) %>% 
   write_csv("data/7_data_age_grp_pop_est_2000_to_2020.csv")
+
+
+# Cleaning  India decadal population changes census -----------------------
+
+readxl::read_xls(path = here("data/8_data_india_states_decadal_pop.xls"),
+                 range = "C7:E473",col_names = c("state","census_year","persons")
+                 ) -> data_persons_decadal
+
+data_persons_decadal %>% 
+  janitor::remove_empty("rows") %>% 
+  fill(state,.direction = "down") %>% 
+  mutate(
+    census_year =  unlist(str_extract_all(census_year,"[:digit:]{4}")),
+    census_year = case_when(
+      census_year == "1900" ~ "1901",
+      census_year == "1910" ~ "1911",
+      census_year == "1940" ~ "1941",
+      census_year == "1950" ~ "1951",
+      census_year == "1960" ~ "1961",
+      census_year == "1962" ~ "1961",
+      census_year == "1948" ~ "1951",
+      TRUE ~ census_year),
+    census_year = as_factor(census_year)
+    
+    ) %>% 
+  filter(state != "INDIA") %>% 
+  pivot_wider(names_from = census_year,values_from = persons) %>% 
+  write_csv(file = here("data/12_states_decadal_pop.csv"))
+
+
+
+
+
+
+
